@@ -1,0 +1,5 @@
+images/brick/brick_000003.jpg
+images/carpet/carpet_000003.jpg
+images/ceramic/ceramic_000003.jpg
+images/fabric/fabric_000003.jpg
+images/foliage/foliage_000003.jpg
