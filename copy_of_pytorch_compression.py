@@ -84,65 +84,37 @@ class cResnet39(pl.LightningModule):
     def __init__(self):
         super().__init__()
 
-        # def make_layer(block, out_channels, blocks, stride=1):
-        #
-        #     downsample = None
-        #     if (stride != 1) or (self.in_channels != out_channels):
-        #         downsample = nn.Sequential(
-        #             conv1x1(self.in_channels, out_channels, stride=stride),
-        #             nn.BatchNorm2d(out_channels))
-        #     layers = nn.ModuleList()
-        #     layers.append(block(self.in_channels, out_channels, stride, downsample))
-        #     self.in_channels = out_channels
-        #     for i in range(1, blocks):
-        #         layers.append(block(out_channels, out_channels))
-        #
-        #     # print(*layers)
-        #     return nn.Sequential(*layers)
-
         # init a pretrained resnet
         backbone = models.resnet50(weights="DEFAULT")
         layers = nn.ModuleList(list(backbone.children())[5:-1])
+
+        self.in_channels = 32
+        self.layer1_y_hat = self.make_layer(ResidualBlock, 128, 1)
+
+        self.in_channels = 32
+        self.layer1_scales_hat = self.make_layer(ResidualBlock, 128, 1)
+
         self.feature_extractor = nn.Sequential(*layers)
-
-        self.in_channels = 32
-
-        # **********************************************************
-        block, out_channels, blocks, stride = ResidualBlock, 128, 1, 1
-        downsample = None
-        if (stride != 1) or (self.in_channels != out_channels):
-            downsample = nn.Sequential(
-                conv1x1(self.in_channels, out_channels, stride=stride),
-                nn.BatchNorm2d(out_channels))
-        layers = nn.ModuleList()
-        layers.append(block(self.in_channels, out_channels, stride, downsample))
-        self.in_channels = out_channels
-        for i in range(1, blocks):
-            layers.append(block(out_channels, out_channels))
-        # **********************************************************
-
-        self.layer1_y_hat = nn.Sequential(*layers)
-
-        self.in_channels = 32
-        # **********************************************************
-        block, out_channels, blocks, stride = ResidualBlock, 128, 1, 1
-        downsample = None
-        if (stride != 1) or (self.in_channels != out_channels):
-            downsample = nn.Sequential(
-                conv1x1(self.in_channels, out_channels, stride=stride),
-                nn.BatchNorm2d(out_channels))
-        layers = nn.ModuleList()
-        layers.append(block(self.in_channels, out_channels, stride, downsample))
-        self.in_channels = out_channels
-        for i in range(1, blocks):
-            layers.append(block(out_channels, out_channels))
-        # **********************************************************
-
-        self.layer1_scales_hat = nn.Sequential(*layers)
 
         # # use the pretrained model to classify cifar-10 (10 image classes)
         num_target_classes = 23
         self.classifier = nn.Linear(2048 * 128, 23)
+
+    def make_layer(self, block, out_channels, blocks, stride=1):
+
+        downsample = None
+        if (stride != 1) or (self.in_channels != out_channels):
+            downsample = nn.Sequential(
+                conv1x1(self.in_channels, out_channels, stride=stride),
+                nn.BatchNorm2d(out_channels))
+        layers = nn.ModuleList()
+        layers.append(block(self.in_channels, out_channels, stride, downsample))
+        self.in_channels = out_channels
+        for i in range(1, blocks):
+            layers.append(block(out_channels, out_channels))
+
+        # print(*layers)
+        return nn.Sequential(*layers)
 
     def forward(self, y_hat, scales_hat):
         print(y_hat.shape)
