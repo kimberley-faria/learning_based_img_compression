@@ -1,0 +1,82 @@
+Traceback (most recent call last):
+  File "/mnt/c/Users/faria/PycharmProjects/696DS/texture-recognition-reimpl/copy_of_pytorch_compression.py", line 285, in <module>
+    trainer.fit(model=downstream_model, train_dataloaders=train_loader)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/trainer/trainer.py", line 608, in fit
+    call._call_and_handle_interrupt(
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/trainer/call.py", line 38, in _call_and_handle_interrupt
+    return trainer_fn(*args, **kwargs)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/trainer/trainer.py", line 650, in _fit_impl
+    self._run(model, ckpt_path=self.ckpt_path)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/trainer/trainer.py", line 1112, in _run
+    results = self._run_stage()
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/trainer/trainer.py", line 1191, in _run_stage
+    self._run_train()
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/trainer/trainer.py", line 1214, in _run_train
+    self.fit_loop.run()
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/loops/loop.py", line 199, in run
+    self.advance(*args, **kwargs)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/loops/fit_loop.py", line 267, in advance
+    self._outputs = self.epoch_loop.run(self._data_fetcher)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/loops/loop.py", line 199, in run
+    self.advance(*args, **kwargs)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/loops/epoch/training_epoch_loop.py", line 213, in advance
+    batch_output = self.batch_loop.run(kwargs)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/loops/loop.py", line 199, in run
+    self.advance(*args, **kwargs)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/loops/batch/training_batch_loop.py", line 88, in advance
+    outputs = self.optimizer_loop.run(optimizers, kwargs)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/loops/loop.py", line 199, in run
+    self.advance(*args, **kwargs)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/loops/optimization/optimizer_loop.py", line 202, in advance
+    result = self._run_optimization(kwargs, self._optimizers[self.optim_progress.optimizer_position])
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/loops/optimization/optimizer_loop.py", line 249, in _run_optimization
+    self._optimizer_step(optimizer, opt_idx, kwargs.get("batch_idx", 0), closure)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/loops/optimization/optimizer_loop.py", line 370, in _optimizer_step
+    self.trainer._call_lightning_module_hook(
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/trainer/trainer.py", line 1356, in _call_lightning_module_hook
+    output = fn(*args, **kwargs)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/core/module.py", line 1742, in optimizer_step
+    optimizer.step(closure=optimizer_closure)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/core/optimizer.py", line 169, in step
+    step_output = self._strategy.optimizer_step(self._optimizer, self._optimizer_idx, closure, **kwargs)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/strategies/strategy.py", line 234, in optimizer_step
+    return self.precision_plugin.optimizer_step(
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/plugins/precision/precision_plugin.py", line 119, in optimizer_step
+    return optimizer.step(closure=closure, **kwargs)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/torch/optim/optimizer.py", line 140, in wrapper
+    out = func(*args, **kwargs)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/torch/optim/optimizer.py", line 23, in _use_grad
+    ret = func(self, *args, **kwargs)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/torch/optim/adam.py", line 183, in step
+    loss = closure()
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/plugins/precision/precision_plugin.py", line 105, in _wrap_closure
+    closure_result = closure()
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/loops/optimization/optimizer_loop.py", line 149, in __call__
+    self._result = self.closure(*args, **kwargs)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/loops/optimization/optimizer_loop.py", line 135, in closure
+    step_output = self._step_fn()
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/loops/optimization/optimizer_loop.py", line 419, in _training_step
+    training_step_output = self.trainer._call_strategy_hook("training_step", *kwargs.values())
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/trainer/trainer.py", line 1494, in _call_strategy_hook
+    output = fn(*args, **kwargs)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/pytorch_lightning/strategies/strategy.py", line 378, in training_step
+    return self.model.training_step(*args, **kwargs)
+  File "/mnt/c/Users/faria/PycharmProjects/696DS/texture-recognition-reimpl/copy_of_pytorch_compression.py", line 186, in training_step
+    predict = self.forward(y_hat.T, scales_hat.T)
+  File "/mnt/c/Users/faria/PycharmProjects/696DS/texture-recognition-reimpl/copy_of_pytorch_compression.py", line 149, in forward
+    y_hat = self.layer1_y_hat(y_hat)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1194, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/torch/nn/modules/container.py", line 204, in forward
+    input = module(input)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1194, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/mnt/c/Users/faria/PycharmProjects/696DS/texture-recognition-reimpl/copy_of_pytorch_compression.py", line 68, in forward
+    out = self.conv1(x)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1194, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/torch/nn/modules/conv.py", line 463, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+  File "/home/kfaria/anaconda3/lib/python3.9/site-packages/torch/nn/modules/conv.py", line 459, in _conv_forward
+    return F.conv2d(input, weight, bias, self.stride,
+RuntimeError: Input type (torch.cuda.FloatTensor) and weight type (torch.FloatTensor) should be the same
