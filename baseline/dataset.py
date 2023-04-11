@@ -76,6 +76,63 @@ class MINCDataset(data.Dataset):
         return len(self.images)
 
 
+class MINCDatasetDecoded(data.Dataset):
+    NUM_CLASS = 23
+
+    def __init__(self, root=os.path.expanduser('../../'),
+                 train=True, quality=1):
+        split = 'train' if train == True else 'val'
+        root = os.path.join(root, 'minc-2500')
+        print(root)
+        
+        self.classes, self.class_to_idx = find_classes(root + '/images')
+        if split == 'train':
+            filename = os.path.join(root, 'labels/train1.txt') # 2125
+        else:
+            filename = os.path.join(root, 'labels/validate1.txt') # 125
+
+        self.images, self.crs, self.labels = make_dataset(filename, root, self.class_to_idx, quality)
+        
+        self.compression_model = bmshj2018_hyperprior(quality=quality, pretrained=True).eval().to(device)
+
+        assert (len(self.images) == len(self.labels))
+
+    def __getitem__(self, index):
+        _image = self.images[index]
+        _img = Image.open(_image).convert('RGB')
+        _label = self.labels[index]
+        
+        _img = transforms.ToTensor()(_img)
+        _img = transforms.Resize(384)(_img)
+    
+        _img = _img.unsqueeze(0).to(device)
+        
+        _compressed_rep = self.crs[index]
+
+        with open(_compressed_rep, 'rb') as handle:
+            compressed_rep = pickle.load(handle)
+        
+        
+        with torch.no_grad():
+            _x_hat = self.compression_model.decompress(compressed_rep['strings'], compressed_rep['shape'])['x_hat']
+            
+        # print(_x_hat.shape)
+        
+        _x_hat = torch.squeeze(_x_hat, 0).to(device)
+        _x_hat = transforms.Resize(256)(_x_hat)
+        _x_hat = transforms.RandomCrop(224)(_x_hat)
+        
+        _x_hat = transforms.RandomHorizontalFlip()(_x_hat)
+        
+
+        return _image, _x_hat, _label
+
+    def __len__(self):
+        return len(self.images)
+
+    
+
+
 def find_classes(dir):
     classes = [d for d in os.listdir(dir) if os.path.isdir(os.path.join(dir, d))]
     classes.sort()
