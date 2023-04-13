@@ -76,6 +76,10 @@ class MINCDataset(data.Dataset):
         return len(self.images)
 
 
+# We use the train-validation-test split
+# 1 provided in the dataset, with 2125 training images, 125
+# validation images and 250 testing images for each class.
+
 class MINCDatasetDecoded(data.Dataset):
     NUM_CLASS = 23
 
@@ -91,7 +95,7 @@ class MINCDatasetDecoded(data.Dataset):
         else:
             filename = os.path.join(root, 'labels/validate1.txt') # 125
 
-        self.images, self.crs, self.labels = make_dataset(filename, root, self.class_to_idx, quality)
+        self.images, self.crs, self.labels = make_dataset(filename, root, self.class_to_idx, quality, classic=True)
         
         self.compression_model = bmshj2018_hyperprior(quality=quality, pretrained=True).eval().to(device)
 
@@ -107,18 +111,10 @@ class MINCDatasetDecoded(data.Dataset):
     
         _img = _img.unsqueeze(0).to(device)
         
-        _compressed_rep = self.crs[index]
+        _x_hat = self.crs[index]
+        _x_hat = Image.open(_x_hat).convert('RGB')
 
-        with open(_compressed_rep, 'rb') as handle:
-            compressed_rep = pickle.load(handle)
-        
-        
-        with torch.no_grad():
-            _x_hat = self.compression_model.decompress(compressed_rep['strings'], compressed_rep['shape'])['x_hat']
-            
-        # print(_x_hat.shape)
-        
-        _x_hat = torch.squeeze(_x_hat, 0).to(device)
+        _x_hat = transforms.ToTensor()(_x_hat)
         _x_hat = transforms.Resize(256)(_x_hat)
         _x_hat = transforms.RandomCrop(224)(_x_hat)
         
@@ -130,6 +126,7 @@ class MINCDatasetDecoded(data.Dataset):
     def __len__(self):
         return len(self.images)
 
+
     
 
 
@@ -140,7 +137,7 @@ def find_classes(dir):
     return classes, class_to_idx
 
 
-def make_dataset(filename, datadir, class_to_idx, quality):
+def make_dataset(filename, datadir, class_to_idx, quality, classic=False):
     images = []
     labels = []
     crs = []
@@ -150,7 +147,7 @@ def make_dataset(filename, datadir, class_to_idx, quality):
         for line in lines:
             _image = os.path.join(datadir, line.rstrip('\n'))
             _dirname = os.path.split(os.path.dirname(_image))[1]
-            _compressed_rep = os.path.join(datadir, 'compressed_rep', f'bpp{quality}', _dirname, os.path.splitext(os.path.split(_image)[1])[0])
+            _compressed_rep = _compressed_rep = os.path.join(datadir, 'enc_dec', f'bpp{quality}', _dirname, os.path.split(_image)[1]) if classic else os.path.join(datadir, 'compressed_rep', f'bpp{quality}', _dirname, os.path.splitext(os.path.split(_image)[1])[0])
             assert os.path.isfile(_image)
             assert os.path.isfile(_compressed_rep)
             label = class_to_idx[_dirname]

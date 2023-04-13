@@ -8,5 +8,5 @@
 
 module load cuda
 
-cd ~/texture_recogn_reimpl/baseline
+cd ~/learning_based_img_compression/baseline
 /home/kfaria_umass_edu/.conda/envs/ds696-project/bin/python baseline_experiment_classic.py $1

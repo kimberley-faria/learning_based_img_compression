@@ -10,5 +10,5 @@ module load cuda conda python
 conda init bash
 conda activate ds696-project
 
-cd ~/texture_recogn_reimpl/baseline
+cd ~/learning_based_img_compression/baseline
 python baseline_experiment.py $1

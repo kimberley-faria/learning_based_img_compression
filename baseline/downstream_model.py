@@ -253,7 +253,7 @@ class Resnet50(pl.LightningModule):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        print(x.shape)
+        # print(x.shape)
         representations = self.feature_extractor(x)
 
         representations = representations.view(representations.size(0), -1)
@@ -263,6 +263,7 @@ class Resnet50(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, x_hat, target = batch
+        x_hat = x_hat.to(device)
         target = target.to(device)
 
       

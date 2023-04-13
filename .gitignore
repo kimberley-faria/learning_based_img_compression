@@ -125,5 +125,15 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
-# Pyre type checker
-.pyre/
+
+696ds-learning-based-image-compression
+baseline/home/696ds-learning-based-image-compression
+wandb
+baseline/wandb
+artifacts
+baseline/artifacts
+
+*.out
+baseline/*.out
+
+
