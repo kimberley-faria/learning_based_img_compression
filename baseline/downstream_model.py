@@ -7,6 +7,13 @@ from torchmetrics import Accuracy
 
 import wandb
 from pytorch_lightning.loggers import WandbLogger
+import math
+
+from compressai.models import ScaleHyperprior
+from compressai.zoo import bmshj2018_hyperprior
+from torch import optim, nn, utils
+from torchvision import transforms
+from torchmetrics import Accuracy
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -340,3 +347,197 @@ class Resnet50(pl.LightningModule):
         return [optimizer], [{"scheduler": scheduler, "interval": "epoch"}]
         
         # return optimizer
+
+        
+class CustomLoss(nn.Module):
+    def __init__(self):
+        super(CustomLoss, self).__init__()
+
+    def forward(self, target, x, predict, decode):
+        loss1 = F.cross_entropy(predict, target)
+        # loss2 = F.mse_loss(x, x_hat)
+        # print(x.size())
+        N, _, H, W = x.size()
+        num_pixels = N * H * W
+        bpp_loss = torch.log(decode["likelihoods"]["y"]).sum() / (-math.log(2) * num_pixels)
+
+        # mean square error
+        mse_loss = F.mse_loss(x, decode["x_hat"])
+
+        # final loss term
+        loss2 = mse_loss + 1e-2 * bpp_loss
+
+        return loss1 + loss2
+
+class CombinedModel(pl.LightningModule):
+    def __init__(self, inchannels=192, quality=1):
+        super().__init__()
+
+        # init a pretrained resnet
+        backbone = models.resnet50(weights="DEFAULT")
+        layers = nn.ModuleList(list(backbone.children())[5:-1])
+
+        self.in_channels = inchannels
+        self.layer1_y_hat = self.make_layer(ResidualBlock, 128, 1)
+
+        self.in_channels = inchannels
+        self.layer1_scales_hat = self.make_layer(ResidualBlock, 128, 1)
+
+        self.feature_extractor = nn.Sequential(*layers)
+
+        num_target_classes = 23
+        # self.classifier = nn.Linear(128*2048, 23)
+        self.classifier = nn.Linear(2048, 23)
+        
+        
+        
+        self.training_targets = []
+        self.validation_targets = []
+        
+        self.training_predictions = []
+        self.validation_predictions = []
+        
+        self.training_step_losses = []
+        self.validation_step_losses = []
+        
+        self.top1_accuracy = Accuracy(task="multiclass", num_classes=num_target_classes)
+        self.top5_accuracy = Accuracy(task="multiclass", num_classes=num_target_classes, top_k=5)
+        
+        print(quality)
+        self.model = bmshj2018_hyperprior(quality=quality, pretrained=True).to(device)
+        
+        self.loss = CustomLoss()
+        
+        # save hyper-parameters to self.hparamsm auto-logged by wandb
+        self.save_hyperparameters()
+        
+
+    def make_layer(self, block, out_channels, blocks, stride=1):
+
+        downsample = None
+        if (stride != 1) or (self.in_channels != out_channels):
+            downsample = nn.Sequential(
+                conv1x1(self.in_channels, out_channels, stride=stride),
+                nn.BatchNorm2d(out_channels))
+        layers = nn.ModuleList()
+        layers.append(block(self.in_channels, out_channels, stride, downsample))
+        self.in_channels = out_channels
+        for i in range(1, blocks):
+            layers.append(block(out_channels, out_channels))
+
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        y = self.model.g_a(x)
+        z = self.model.h_a(torch.abs(y))
+        z_hat, z_likelihoods = self.model.entropy_bottleneck(z)
+        _scales_hat = self.model.h_s(z_hat)
+        _y_hat, y_likelihoods = self.model.gaussian_conditional(y, _scales_hat) 
+        _x_hat = self.model.g_s(_y_hat)
+        _y_hat, _scales_hat = torch.squeeze(_y_hat, 0).to(device), torch.squeeze(_scales_hat, 0).to(device)
+        _y_hat = transforms.Resize(32)(_y_hat)
+        _scales_hat = transforms.Resize(32)(_scales_hat)
+        _y_hat = transforms.RandomCrop(28)(_y_hat)
+        _scales_hat = transforms.RandomCrop(28)(_scales_hat)
+        
+        p = float(torch.randint(0, 2, (1, )).item())
+        _y_hat = transforms.RandomHorizontalFlip(p=p)(_y_hat)
+        _scales_hat = transforms.RandomHorizontalFlip(p=p)(_scales_hat)
+        
+        _y_hat = self.layer1_y_hat(_y_hat)
+        _scales_hat = self.layer1_scales_hat(_scales_hat)
+        x = torch.concat((_y_hat, _scales_hat), 1)
+        
+
+        representations = self.feature_extractor(x)
+
+        representations = representations.view(representations.size(0), -1)
+        
+        output = self.classifier(representations)
+
+        
+        return output, _y_hat, _scales_hat, {
+            "x_hat": _x_hat,
+            "likelihoods": {"y": y_likelihoods, "z": z_likelihoods},
+        }
+
+    def training_step(self, batch, batch_idx):
+        x, target = batch
+        target = target.to(device)    
+      
+        predict, y_hat, scales_hat, decode = self.forward(x)
+        
+        # loss = self.loss(target, x, predict, decode)
+        
+        
+#         reconstruction_loss = self.criterion(x, x_hat)
+        
+        batch_loss = F.cross_entropy(predict, target)
+        
+        self.training_step_losses.append(batch_loss)
+
+        self.training_targets.append(target)
+        self.training_predictions.append(predict)
+        
+        return batch_loss
+    
+    def validation_step(self, batch, batch_idx):
+        x, target = batch
+        
+        target = target.to(device)
+
+      
+        with torch.no_grad():
+            predict, y_hat, scales_hat, decode = self.forward(x)
+            batch_loss = F.cross_entropy(predict, target)
+            
+        self.validation_step_losses.append(batch_loss)
+
+            
+        self.validation_targets.append(target)
+        self.validation_predictions.append(predict)
+        
+        return batch_loss
+    
+    def on_train_epoch_end(self):
+        # print(torch.cat(self.training_targets).shape)
+        # print(torch.cat(self.training_predictions).shape)
+        
+        loss = F.cross_entropy(torch.cat(self.training_predictions), torch.cat(self.training_targets))
+        # loss1 = sum(self.training_step_losses) / len(self.training_step_losses)
+        top1_accuracy = self.top1_accuracy(torch.cat(self.training_predictions), torch.cat(self.training_targets)) 
+        top5_accuracy = self.top5_accuracy(torch.cat(self.training_predictions), torch.cat(self.training_targets)) 
+        print("\nTrain loss:", loss)
+        print("Train top-1 acc:", top1_accuracy)
+        print("Train top-5 acc:", top5_accuracy)
+        self.log("train loss", loss)
+        self.log("train top-1 acc", top1_accuracy)
+        self.log("train top-5 acc", top5_accuracy)
+        self.training_targets.clear()
+        self.training_predictions.clear()
+        self.training_step_losses.clear()
+        
+    def on_validation_epoch_end(self):
+        print(torch.cat(self.validation_targets).shape)
+        print(torch.cat(self.validation_predictions).shape)
+        
+        loss = F.cross_entropy(torch.cat(self.validation_predictions), torch.cat(self.validation_targets))
+        top1_accuracy = self.top1_accuracy(torch.cat(self.validation_predictions), torch.cat(self.validation_targets)) 
+        top5_accuracy = self.top5_accuracy(torch.cat(self.validation_predictions), torch.cat(self.validation_targets)) 
+        # loss = sum(self.validation_step_losses) / len(self.validation_step_losses)
+        
+        print("\nVal loss:", loss)
+        print("Val top-1 acc:", top1_accuracy)
+        print("Val top-5 acc:", top5_accuracy)
+        self.log("val loss", loss)
+        self.log("val top-1 acc", top1_accuracy)
+        self.log("val top-5 acc", top5_accuracy)
+        self.validation_targets.clear()
+        self.validation_predictions.clear()
+        self.validation_step_losses.clear()
+    
+
+    def configure_optimizers(self):
+        optimizer = optim.SGD(self.parameters(), lr=0.01, momentum=0.9, weight_decay=0.0005)
+        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
+        return [optimizer], [{"scheduler": scheduler, "interval": "epoch"}]

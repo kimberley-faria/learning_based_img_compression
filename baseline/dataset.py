@@ -127,7 +127,74 @@ class MINCDatasetDecoded(data.Dataset):
         return len(self.images)
 
 
+
     
+class MINCDataset2(data.Dataset):
+    NUM_CLASS = 23
+
+    def __init__(self, root='/work/pi_adrozdov_umass_edu/kfaria_umass_edu/dataset/',
+                 train=True):
+        split = 'train' if train == True else 'val'
+        root = os.path.join(root, 'minc-2500')
+        print(root)
+        
+        self.classes, self.class_to_idx = find_classes2(root + '/images')
+        if split == 'train':
+            filename = os.path.join(root, 'labels/train1.txt') # 2125
+        else:
+            filename = os.path.join(root, 'labels/validate1.txt') # 125
+
+        self.images, self.labels = make_dataset2(filename, root, self.class_to_idx)
+        
+        assert (len(self.images) == len(self.labels))
+
+    def __getitem__(self, index):
+        _image = self.images[index]
+        _img = Image.open(_image).convert('RGB')
+        _label = self.labels[index]
+        
+        _img = transforms.ToTensor()(_img)
+        _img = transforms.Resize(384)(_img)
+
+        return _img, _label
+
+
+    def __len__(self):
+        return len(self.images)
+
+
+def find_classes2(dir):
+    classes = [d for d in os.listdir(dir) if os.path.isdir(os.path.join(dir, d))]
+    classes.sort()
+    class_to_idx = {classes[i]: i for i in range(len(classes))}
+    return classes, class_to_idx
+
+
+def make_dataset2(filename, datadir, class_to_idx):
+    images = []
+    labels = []
+    crs = []
+    
+    i = 0
+    with open(os.path.join(filename), "r") as lines:
+        for line in lines:
+            _image = os.path.join(datadir, line.rstrip('\n'))
+            _dirname = os.path.split(os.path.dirname(_image))[1]
+            # _compressed_rep = os.path.join(datadir, 'compressed_rep', f'bpp{quality}', _dirname, os.path.splitext(os.path.split(_image)[1])[0])
+            assert os.path.isfile(_image)
+            # assert os.path.isfile(_compressed_rep)
+            label = class_to_idx[_dirname]
+            images.append(_image)
+            # crs.append(_compressed_rep)
+            labels.append(label)
+            
+            i += 1
+            if i % 1000 == 0: sys.stdout.write('\r'+str(i)+' items loaded')
+            
+    sys.stdout.write('\r'+str(i)+' items loaded')
+                           
+              
+    return images, labels
 
 
 def find_classes(dir):
